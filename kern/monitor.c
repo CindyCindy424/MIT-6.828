@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Display a backtrace of the function stack", mon_backtrace },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -58,6 +59,33 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
+	cprintf("stack backtrace:\n");
+	//unsigned int ebp, esp, eip;
+	unsigned int ebp,*eip,*p;
+	//unsigned int *args;//参数数组指针
+	ebp=read_ebp();//读出当前ebp内容，当ebp为0时结束
+	eip=(unsigned int *)(ebp+4);
+	//从顶层往最底层（最初）开始读取
+	struct Eipdebuginfo info;
+	int flag = debuginfo_eip(*eip,&info);
+	
+	while(ebp)
+	{
+	  //eip=*((unsigned int*)(ebp+4));
+	  //args= (unsigned int*)(ebp+8);
+	  //for(int i=0;i<5;i++)
+	    // args[i] = (*(unsigned int*)(ebp+8+4i));
+	  p=(unsigned int *)ebp;
+	  //int offset=p[1]-info.eip_fn_addr;
+	  cprintf("ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", ebp,p[1],p[2],p[3],p[4],p[5],p[6]);
+	  //cprintf("flag = %d\n",flag);
+	  flag = debuginfo_eip(p[1],&info);
+	  if(flag ==0)
+	  {
+	      	  cprintf("\t%s:%d: %.*s+%d\n",info.eip_file,info.eip_line,info.eip_fn_namelen,info.eip_fn_name,(p[1] - info.eip_fn_addr));
+	  }
+	  ebp=*((unsigned int*)ebp);//取ebp值所代表的地址的值
+	}
 	return 0;
 }
 
