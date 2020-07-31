@@ -89,6 +89,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	char padc;
 
 	while (1) {
+	//先直接输出%前面的内容
 		while ((ch = *(unsigned char *) fmt++) != '%') {
 			if (ch == '\0')
 				return;
@@ -189,12 +190,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// (signed) decimal
 		case 'd':
-			num = getint(&ap, lflag);
+			num = getint(&ap, lflag);//转换成int（maybe
 			if ((long long) num < 0) {
-				putch('-', putdat);
-				num = -(long long) num;
+				putch('-', putdat);  //负号
+				num = -(long long) num; //转换为绝对值
 			}
-			base = 10;
+			base = 10;  //确定基准为10进制
 			goto number;
 
 		// unsigned decimal
@@ -206,10 +207,14 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+			//putch('0',putdat);//八进制前面要加上0
+			num=getint(&ap,lflag);
+			base=8;
+			goto number;
+			//putch('X', putdat);
+			//putch('X', putdat);
+			//putch('X', putdat);
+			//break;
 
 		// pointer
 		case 'p':
