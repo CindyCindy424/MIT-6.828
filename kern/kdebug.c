@@ -23,8 +23,8 @@ struct UserStabData {
 // stab_binsearch(stabs, region_left, region_right, type, addr)
 //
 //	Some stab types are arranged in increasing order by instruction
-//	address.  For example, N_FUN stabs (stab entries with n_type ==
-//	N_FUN), which mark functions, and N_SO stabs, which mark source files.
+//	address.  For example, N_FUN stabs (stab entries with n_type ==    //N_FUN——functions
+//	N_FUN), which mark functions, and N_SO stabs, which mark source files.   //N_SO——source files
 //
 //	Given an instruction address, this function finds the single stab
 //	entry of type 'type' that contains that address.
@@ -36,7 +36,7 @@ struct UserStabData {
 //		right = N - 1;     /* rightmost stab */
 //		stab_binsearch(stabs, &left, &right, type, addr);
 //
-//	The search modifies *region_left and *region_right to bracket the
+//	The search modifies *region_left and *region_right to bracket the   //bracket 囊括
 //	'addr'.  *region_left points to the matching stab that contains
 //	'addr', and *region_right points just before the next stab.  If
 //	*region_left > *region_right, then 'addr' is not contained in any
@@ -106,15 +106,18 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 // debuginfo_eip(addr, info)
 //
 //	Fill in the 'info' structure with information about the specified
-//	instruction address, 'addr'.  Returns 0 if information was found, and
+//	instruction address, 'addr'.  Returns 0 if information was found, and    //‘addr’是指令地址
 //	negative if not.  But even if it returns negative it has stored some
-//	information into '*info'.
+//	information into '*info'.  //即使return的是negative，仍然有可能有些信息在*info中
 //
+
+//符号表 stab
+
 int
 debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 {
-	const struct Stab *stabs, *stab_end;
-	const char *stabstr, *stabstr_end;
+	const struct Stab *stabs, *stab_end; 
+	const char *stabstr, *stabstr_end; 
 	int lfile, rfile, lfun, rfun, lline, rline;
 
 	// Initialize *info
@@ -157,37 +160,37 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		return -1;
 
 	// Now we find the right stabs that define the function containing
-	// 'eip'.  First, we find the basic source file containing 'eip'.
-	// Then, we look in that source file for the function.  Then we look
-	// for the line number.
+	// 'eip'.  First, we find the basic source file containing 'eip'.//step01先找到包含eip的文件
+	// Then, we look in that source file for the function.  Then we look //step02然后在该文件里找到它的函数
+	// for the line number.  //step03然后寻找行编号
 
-	// Search the entire set of stabs for the source file (type N_SO).
+	// Search the entire set of stabs for the source file (type N_SO).  
 	lfile = 0;
-	rfile = (stab_end - stabs) - 1;
-	stab_binsearch(stabs, &lfile, &rfile, N_SO, addr);
+	rfile = (stab_end - stabs) - 1;  //stabs 是一系列stabs的集中放置的指示指针
+	stab_binsearch(stabs, &lfile, &rfile, N_SO, addr);  //step01,更新 &lfile, &rfile
 	if (lfile == 0)
 		return -1;
 
-	// Search within that file's stabs for the function definition
-	// (N_FUN).
+	// Search within that file's stabs for the function definition  第二步
+	// (N_FUN).  寻找function
 	lfun = lfile;
 	rfun = rfile;
-	stab_binsearch(stabs, &lfun, &rfun, N_FUN, addr);
+	stab_binsearch(stabs, &lfun, &rfun, N_FUN, addr);  //二分查找，更新&lfun, &rfun
 
 	if (lfun <= rfun) {
 		// stabs[lfun] points to the function name
 		// in the string table, but check bounds just in case.
 		if (stabs[lfun].n_strx < stabstr_end - stabstr)
 			info->eip_fn_name = stabstr + stabs[lfun].n_strx;
-		info->eip_fn_addr = stabs[lfun].n_value;
-		addr -= info->eip_fn_addr;
-		// Search within the function definition for the line number.
+		info->eip_fn_addr = stabs[lfun].n_value; //确定函数地址
+		addr -= info->eip_fn_addr;//此时addr就是函数内的偏移量
+		// Search within the function definition for the line number. //function找到了，在这个范围内确定line
 		lline = lfun;
 		rline = rfun;
 	} else {
 		// Couldn't find function stab!  Maybe we're in an assembly
-		// file.  Search the whole file for the line number.
-		info->eip_fn_addr = addr;
+		// file.  Search the whole file for the line number.  //如果找不到function stab说明是在汇编文件里，去寻找line number
+		info->eip_fn_addr = addr;//函数地址即 addr地址
 		lline = lfile;
 		rline = rfile;
 	}
@@ -204,6 +207,17 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
+	
+	stab_binsearch(stabs,&lline,&rline,N_SLINE,addr);
+	//cprintf("lline = %08x, rline = %08x,addr = %08x\n",lline,rline,addr);
+	if(lline <= rline)
+	{
+	    info->eip_line=stabs[lline].n_desc;
+	}
+	else
+	{
+	    cprintf("line not found! \n");
+	}
 
 
 	// Search backwards from the line number for the relevant filename
