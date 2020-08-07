@@ -143,7 +143,9 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);  //找到空闲内存地址指针
+	cprintf("kern_pgdir1= %x \n",kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
+	cprintf("kern_pgdir2= %x \n",kern_pgdir);
 
 	//////////////////////////////////////////////////////////////////////
 	// Recursively insert PD in itself as a page table, to form
@@ -168,7 +170,11 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
-
+	envs = (struct Env*)boot_alloc(sizeof(struct Env) * NENV);
+	cprintf("envs1 = %x \n",envs);
+	memset(envs,0,sizeof(struct Env) * NENV);
+	cprintf("envs2 = %x \n",envs);
+	
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
@@ -202,6 +208,8 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	//boot_map_region(kern_pgdir,UENVS,(sizeof(struct Env) * NENV),PADDR(envs),PTE_U);
+	boot_map_region(kern_pgdir,UENVS,PTSIZE,PADDR(envs),PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel   //将bootstack指向的物理内存用作 kernel stack
