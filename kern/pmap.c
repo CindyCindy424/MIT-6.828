@@ -95,7 +95,7 @@ boot_alloc(uint32_t n) //n是大小，uint32_t 长度4字节，但是这里只�
 	// to any kernel code or global variables.
 	if (!nextfree) {  //第一次initialize nextfree
 		extern char end[];
-		nextfree = ROUNDUP((char *) end, PGSIZE);  //bss segment末端开始寻找，说明从内核的末尾开始分配物理内存 ，end是定义在/kern/kernel.ld中定义的符号
+		nextfree = ROUNDUP((char *) end, PGSIZE) + PGSIZE;  //bss segment末端开始寻找，说明从内核的末尾开始分配物理内存 ，end是定义在/kern/kernel.ld中定义的符号
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update   //？为啥这里是n bytes？
@@ -142,7 +142,7 @@ mem_init(void)
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
-	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);  //找到空闲内存地址指针
+	kern_pgdir = (pde_t *)boot_alloc(PGSIZE);  //找到空闲内存地址指针
 	cprintf("kern_pgdir1= %x \n",kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
 	cprintf("kern_pgdir2= %x \n",kern_pgdir);
@@ -605,7 +605,7 @@ static uintptr_t user_mem_check_addr;
 // contains any of that range.  You will test either 'len/PGSIZE',
 // 'len/PGSIZE + 1', or 'len/PGSIZE + 2' pages.
 //
-// A user program can access a virtual address if (1) the address is below
+// A user program can access a virtual address if (1) the address is below   //用户程序可以访问某个虚拟地址，if:1. 该地址在ULIM下面；2. 页表给了它权限
 // ULIM, and (2) the page table gives it permission.  These are exactly
 // the tests you should implement here.
 //
@@ -619,7 +619,20 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
-
+	cprintf("user_mem_check va: %x, len: %x\n", va, len);
+	uint32_t begin = (uint32_t) ROUNDDOWN(va, PGSIZE); //没有强求page-aligned 那么就需要用ROUNDDOWN/ROUNDUP
+	uint32_t end = (uint32_t) ROUNDUP(va+len, PGSIZE);
+	uint32_t i;
+	for (i = (uint32_t)begin; i < end; i += PGSIZE) 
+	{
+		pte_t *pte = pgdir_walk(env->env_pgdir, (void*)i, 0);
+		if ((i >= ULIM) || !pte || !(*pte & PTE_P) || ((*pte & perm) != perm)) 
+		{        //具体检测规则
+			user_mem_check_addr = (i < (uint32_t)va ? (uint32_t)va : i);                //记录无效的线性地址，如果i比va小，那么就是va所在的页面的问题，但是还是返va
+			return -E_FAULT;
+		}
+	}
+	cprintf("user_mem_check success va: %x, len: %x\n", va, len);
 	return 0;
 }
 
