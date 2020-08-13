@@ -112,7 +112,7 @@ envid2env(envid_t envid, struct Env **env_store, bool checkperm)
 // and insert them into the env_free_list.
 // Make sure the environments are in the free list in the same order
 // they are in the envs array (i.e., so that the first call to
-// env_alloc() returns envs[0]).
+// env_alloc() returns _s[0]).
 //
 void
 env_init(void)
@@ -131,16 +131,24 @@ env_init(void)
 	//	env_free_list = &envs[i];
 	//}
 	
-	for(int i=0;i>NENV;i++)
-	{
-	    envs[i].env_status = ENV_FREE;
-	    envs[i].env_id =0;
-	  if(i!=NENV-1)
-	  {
-	    envs[i].env_link = &envs[i+1];
-	  }//envs[]数组的最后一个，不需要链接所以单独提出来
-	  else envs[i].env_link =NULL;
+	env_free_list = NULL;
+	for (int i = NENV - 1; i >= 0; i--) {	//前插法构建链表
+		envs[i].env_id = 0;
+		envs[i].env_link = env_free_list;
+		env_free_list = &envs[i];
 	}
+
+	
+	//for(int i=0;i>NENV;i++)
+	//{
+	    //envs[i].env_status = ENV_FREE;
+	    //envs[i].env_id =0;
+	  //if(i!=NENV-1)
+	  //{
+	    //envs[i].env_link = &envs[i+1];
+	  //}//envs[]数组的最后一个，不需要链接所以单独提出来
+	  //else envs[i].env_link =NULL;
+	//}
 
 	// Per-CPU part of the initialization
 	env_init_percpu();
@@ -273,6 +281,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
+	e->env_tf.tf_eflags |= FL_IF;  //用户态的时候启用中断
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -570,6 +579,7 @@ env_run(struct Env *e)
 	    curenv->env_status = ENV_RUNNING;
 	    // 这种写法是错误的！！curenv->env_pgdir = lcr3;
 	    lcr3(PADDR(e->env_pgdir));
+	    unlock_kernel();
 	    
 	
 	env_pop_tf(&e->env_tf);  //弹出env_tf结构到寄存器

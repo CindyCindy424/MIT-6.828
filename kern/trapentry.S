@@ -68,6 +68,28 @@ TRAPHANDLER(th17, 17)
 TRAPHANDLER_NOEC(th18, 18)
 TRAPHANDLER_NOEC(th19, 19)
 
+
+
+
+//lab4:
+// IRQs
+	TRAPHANDLER_NOEC(th32, IRQ_OFFSET)
+	TRAPHANDLER_NOEC(th33, IRQ_OFFSET + 1)
+	TRAPHANDLER_NOEC(th34, IRQ_OFFSET + 2)
+	TRAPHANDLER_NOEC(th35, IRQ_OFFSET + 3)
+	TRAPHANDLER_NOEC(th36, IRQ_OFFSET + 4)
+	TRAPHANDLER_NOEC(th37, IRQ_OFFSET + 5)
+	TRAPHANDLER_NOEC(th38, IRQ_OFFSET + 6)
+	TRAPHANDLER_NOEC(th39, IRQ_OFFSET + 7)
+	TRAPHANDLER_NOEC(th40, IRQ_OFFSET + 8)
+	TRAPHANDLER_NOEC(th41, IRQ_OFFSET + 9)
+	TRAPHANDLER_NOEC(th42, IRQ_OFFSET + 10)
+	TRAPHANDLER_NOEC(th43, IRQ_OFFSET + 11)
+	TRAPHANDLER_NOEC(th44, IRQ_OFFSET + 12)
+	TRAPHANDLER_NOEC(th45, IRQ_OFFSET + 13)
+	TRAPHANDLER_NOEC(th46, IRQ_OFFSET + 14)
+	TRAPHANDLER_NOEC(th47, IRQ_OFFSET + 15)
+
 TRAPHANDLER_NOEC(th_syscall, T_SYSCALL)
 
 
@@ -77,18 +99,28 @@ TRAPHANDLER_NOEC(th_syscall, T_SYSCALL)
  
  _alltraps:
  pushl %ds
- pushl %es
- pushal
- movl $GD_KD, %eax
- movw %ax, %ds
- movw %ax, %es
- pushl %esp
- call trap
- popal
- popl %es
- popl %ds
- addl $8, %esp 
- iret
+pushl %es
+pushal
+pushl $GD_KD
+popl %ds
+pushl $GD_KD
+popl %es
+pushl %esp				//压入trap()的参数tf，%esp指向Trapframe结构的起始地址
+call trap
+ 
+ //pushl %ds
+ //pushl %es
+ //pushal
+ //movl $GD_KD, %eax
+ //movw %ax, %ds
+ //movw %ax, %es
+ //pushl %esp
+ //call trap
+ //popal
+ //popl %es
+ //popl %ds
+ //addl $8, %esp 
+ //iret
  
  
  

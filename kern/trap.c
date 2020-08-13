@@ -91,7 +91,29 @@ trap_init(void)
 	void th17();
 	void th18();
 	void th19();
+	
+	
+	void th32();
+	void th33();
+	void th34();
+	void th35();
+	void th36();
+	void th37();
+	void th38();
+	void th39();
+	void th40();
+	void th41();
+	void th42();
+	void th43();
+	void th44();
+	void th45();
+	void th46();
+	void th47();
+	
+	
+	
 	void th_syscall();
+	
 	SETGATE(idt[0], 0, GD_KT, th0, 0);		//格式如下：SETGATE(gate, istrap, sel, off, dpl)，定义在inc/mmu.h中
 	SETGATE(idt[1], 0, GD_KT, th1, 0);  //设置idt[1]，段选择子为内核代码段，段内偏移为th1
 	SETGATE(idt[2], 0, GD_KT, th2, 0);
@@ -112,8 +134,28 @@ trap_init(void)
 	SETGATE(idt[16], 0, GD_KT, th18, 0);
 	SETGATE(idt[16], 0, GD_KT, th19, 0);
 
-	SETGATE(idt[T_SYSCALL], 0, GD_KT, th_syscall, 3);		//为什么门的DPL要定义为3，参考《x86汇编语言-从实模式到保护模式》p345
 
+    
+// IRQ
+	SETGATE(idt[IRQ_OFFSET], 0, GD_KT, th32, 0);
+	SETGATE(idt[IRQ_OFFSET + 1], 0, GD_KT, th33, 0);
+	SETGATE(idt[IRQ_OFFSET + 2], 0, GD_KT, th34, 0);
+	SETGATE(idt[IRQ_OFFSET + 3], 0, GD_KT, th35, 0);
+	SETGATE(idt[IRQ_OFFSET + 4], 0, GD_KT, th36, 0);
+	SETGATE(idt[IRQ_OFFSET + 5], 0, GD_KT, th37, 0);
+	SETGATE(idt[IRQ_OFFSET + 6], 0, GD_KT, th38, 0);
+	SETGATE(idt[IRQ_OFFSET + 7], 0, GD_KT, th39, 0);
+	SETGATE(idt[IRQ_OFFSET + 8], 0, GD_KT, th40, 0);
+	SETGATE(idt[IRQ_OFFSET + 9], 0, GD_KT, th41, 0);
+	SETGATE(idt[IRQ_OFFSET + 10], 0, GD_KT, th42, 0);
+	SETGATE(idt[IRQ_OFFSET + 11], 0, GD_KT, th43, 0);
+	SETGATE(idt[IRQ_OFFSET + 12], 0, GD_KT, th44, 0);
+	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, th45, 0);
+	SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, th46, 0);
+	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, th47, 0);
+	
+	
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, th_syscall, 3);		//为什么门的DPL要定义为3，参考《x86汇编语言-从实模式到保护模式》p345
 	
 	
 	
@@ -151,20 +193,25 @@ trap_init_percpu(void)
 	//
 	// LAB 4: Your code here:
 
+	int cid = thiscpu->cpu_id;
+
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
-	ts.ts_iomb = sizeof(struct Taskstate);
+
+	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - cid * (KSTKSIZE + KSTKGAP);
+	thiscpu->cpu_ts.ts_ss0 = GD_KD;
+	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);			//修复这里的一个bug
+
 
 	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
-					sizeof(struct Taskstate) - 1, 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+
+	gdt[(GD_TSS0 >> 3)+cid] = SEG16(STS_T32A, (uint32_t) (&(thiscpu->cpu_ts)),sizeof(struct Taskstate), 0);
+	gdt[(GD_TSS0 >> 3)+cid].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	ltr(GD_TSS0+8*cid);
+
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -250,6 +297,14 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	if(tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER)
+	{
+	    // 回应8259A CPU已经接收中断。
+	    //处理始终中断
+            lapic_eoi();
+            sched_yield();
+            return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -287,6 +342,7 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+		lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie
@@ -371,6 +427,30 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+	if (curenv->env_pgfault_upcall) 
+	{
+		uintptr_t stacktop = UXSTACKTOP;
+		if (UXSTACKTOP - PGSIZE < tf->tf_esp && tf->tf_esp < UXSTACKTOP) 
+		{
+			stacktop = tf->tf_esp;
+		}
+		uint32_t size = sizeof(struct UTrapframe) + sizeof(uint32_t);
+		user_mem_assert(curenv, (void *)stacktop - size, size, PTE_U | PTE_W);
+		struct UTrapframe *utr = (struct UTrapframe *)(stacktop - size);//在栈上压入一个UTrapframe结构
+		utr->utf_fault_va = fault_va;
+		utr->utf_err = tf->tf_err;
+		utr->utf_regs = tf->tf_regs;
+		utr->utf_eip = tf->tf_eip;
+		utr->utf_eflags = tf->tf_eflags;
+		utr->utf_esp = tf->tf_esp;				//UXSTACKTOP栈上需要保存发生缺页异常时的%esp和%eip
+
+		curenv->env_tf.tf_eip = (uintptr_t)curenv->env_pgfault_upcall;  //将eip置为curenv->env_pgfault_upcall，然后回到用户态执行curenv->env_pgfault_upcall处的代码
+		curenv->env_tf.tf_esp = (uintptr_t)utr;  //修改esp 切换到用户异常栈
+		env_run(curenv);			//重新进入用户态
+	}
+	
+	
+	
 
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",

@@ -98,6 +98,7 @@ boot_alloc(uint32_t n) //n是大小，uint32_t 长度4字节，但是这里只�
 	if (!nextfree) {  //第一次initialize nextfree
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE) + PGSIZE;  //bss segment末端开始寻找，说明从内核的末尾开始分配物理内存 ，end是定义在/kern/kernel.ld中定义的符号
+	        //nextfree = ROUNDUP((char *) end, PGSIZE);
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update   //？为啥这里是n bytes？
@@ -288,7 +289,10 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	for(int i=0;i<NCPU;i++)
+	{
+	    boot_map_region(kern_pgdir,KSTACKTOP-KSTKSIZE - i*(KSTKSIZE +KSTKGAP),KSTKSIZE,PADDR(percpu_kstacks[i]),PTE_W);
+	}
 }
 
 // --------------------------------------------------------------
@@ -328,8 +332,13 @@ page_init(void)
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
 	size_t i;
-	size_t io_hole_start_page = (size_t)IOPHYSMEM / PGSIZE;
+	size_t io_hole_start_page = (size_t)IOPHYSMEM / PGSIZE;  //IOPHYSMEM = 0x0A0000
 	size_t kernel_end_page = PADDR(boot_alloc(0)) / PGSIZE;  //注意boot_alloc()返回虚拟地址
+	
+	extern unsigned char mpentry_start[], mpentry_end[];
+	size_t size = mpentry_end - mpentry_start;
+	size = ROUNDUP(size, PGSIZE);
+	
 	for (i = 0; i < npages; i++) {
 	    if(i==0) //如上面要求1
 	    {
@@ -342,6 +351,13 @@ page_init(void)
 	        pages[i].pp_ref = 1;
                 pages[i].pp_link = NULL;
 	    }
+	    //else if(i>=MPENTRY_PADDR/PGSIZE && i< (MPENTRY_PADDR+size)/PGSIZE)
+	    else if(i==MPENTRY_PADDR/PGSIZE)
+	    {
+	        pages[i].pp_ref = 1;
+	        pages[i].pp_link=NULL;
+	        //只是标为已用，但是还是要保留ref link 以便后面寻找该区域内的空页面
+	    }	  
 	    else
 	    {
 		pages[i].pp_ref = 0;
@@ -641,7 +657,7 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// beginning of the MMIO region.  Because this is static, its
 	// value will be preserved between calls to mmio_map_region
 	// (just like nextfree in boot_alloc).
-	static uintptr_t base = MMIOBASE;
+	static uintptr_t base = MMIOBASE;  //base是可保留信息的static类型的
 
 	// Reserve size bytes of virtual memory starting at base and
 	// map physical pages [pa,pa+size) to virtual addresses
@@ -649,19 +665,28 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// regular DRAM, you'll have to tell the CPU that it isn't
 	// safe to cache access to this memory.  Luckily, the page
 	// tables provide bits for this purpose; simply create the
-	// mapping with PTE_PCD|PTE_PWT (cache-disable and
+	// mapping with PTE_PCD|PTE_PWT (cache-disable and  //特殊权限告诉CPU cache access不安全）
 	// write-through) in addition to PTE_W.  (If you're interested
 	// in more details on this, see section 10.5 of IA32 volume
 	// 3A.)
 	//
 	// Be sure to round size up to a multiple of PGSIZE and to
 	// handle if this reservation would overflow MMIOLIM (it's
-	// okay to simply panic if this happens).
+	// okay to simply panic if this happens).//如果溢出 可以直接panic
 	//
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	//panic("mmio_map_region not implemented");
+	size = ROUNDUP(pa+size, PGSIZE);
+	pa = ROUNDDOWN(pa, PGSIZE);
+	size -= pa;
+	if (base+size >= MMIOLIM) panic("not enough memory");
+	boot_map_region(kern_pgdir, base, size, pa, PTE_PCD|PTE_PWT|PTE_W);
+	base += size;
+	return (void*) (base - size);
+	
+
 }
 
 static uintptr_t user_mem_check_addr;
@@ -688,7 +713,7 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
-	cprintf("user_mem_check va: %x, len: %x\n", va, len);
+	//cprintf("user_mem_check va: %x, len: %x\n", va, len);
 	uint32_t begin = (uint32_t) ROUNDDOWN(va, PGSIZE); //没有强求page-aligned 那么就需要用ROUNDDOWN/ROUNDUP
 	uint32_t end = (uint32_t) ROUNDUP(va+len, PGSIZE);
 	uint32_t i;
@@ -701,7 +726,7 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 			return -E_FAULT;
 		}
 	}
-	cprintf("user_mem_check success va: %x, len: %x\n", va, len);
+	//cprintf("user_mem_check success va: %x, len: %x\n", va, len);
 	return 0;
 }
 
