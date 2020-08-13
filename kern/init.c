@@ -51,6 +51,7 @@ i386_init(void)
 	// Your code here:
 
 	// Starting non-boot CPUs
+	lock_kernel();
 	boot_aps();
 
 	// Start fs.
@@ -66,7 +67,15 @@ i386_init(void)
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
+
 	ENV_CREATE(user_icode, ENV_TYPE_USER);
+	
+	//ENV_CREATE(user_primes, ENV_TYPE_USER);
+	//ENV_CREATE(user_yield, ENV_TYPE_USER);
+	//ENV_CREATE(user_yield, ENV_TYPE_USER);
+	//ENV_CREATE(user_yield, ENV_TYPE_USER);
+	//ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
+
 #endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.
@@ -126,6 +135,8 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 6
 	for (;;);

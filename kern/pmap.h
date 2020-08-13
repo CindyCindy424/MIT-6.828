@@ -69,12 +69,12 @@ int	user_mem_check(struct Env *env, const void *va, size_t len, int perm);
 void	user_mem_assert(struct Env *env, const void *va, size_t len, int perm);
 
 static inline physaddr_t
-page2pa(struct PageInfo *pp)
+page2pa(struct PageInfo *pp)   //已知pages[i]的地址，转化为第i个页面的首地址(pages[]保存的是物理页面 也转化成物理地址！
 {
 	return (pp - pages) << PGSHIFT;
 }
 
-static inline struct PageInfo*
+static inline struct PageInfo*   //传入物理地址，返回线性地址的前20位（即页目录项+页表项）
 pa2page(physaddr_t pa)
 {
 	if (PGNUM(pa) >= npages)
@@ -82,7 +82,7 @@ pa2page(physaddr_t pa)
 	return &pages[PGNUM(pa)];
 }
 
-static inline void*
+static inline void*   //将pages[i]地址转化为第i个页面的虚拟地址
 page2kva(struct PageInfo *pp)
 {
 	return KADDR(page2pa(pp));

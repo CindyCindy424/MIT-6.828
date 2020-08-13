@@ -27,12 +27,31 @@ sched_yield(void)
 	// Never choose an environment that's currently running on
 	// another CPU (env_status == ENV_RUNNING). If there are
 	// no runnable environments, simply drop through to the code
-	// below to halt the cpu.
+	// below to halt the cpu.  //不能选择正在其他CPU上面执行的进程
 
 	// LAB 4: Your code here.
 
+    idle = thiscpu->cpu_env;
+    uint32_t start = (idle != NULL) ? ENVX( idle->env_id) : 0;
+    uint32_t i = start;
+    bool first = true;
+    for (; i != start || first; i = (i+1) % NENV, first = false)
+    {
+        if(envs[i].env_status == ENV_RUNNABLE)
+        {
+            env_run(&envs[i]);
+            return ;
+        }
+    }
+ 
+    if (idle && idle->env_status == ENV_RUNNING)
+    {
+        env_run(idle);
+        return ;
+    }
+
 	// sched_halt never returns
-	sched_halt();
+	sched_halt();  //直接停机
 }
 
 // Halt this CPU when there is nothing to do. Wait until the
@@ -76,7 +95,7 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"   //STI 置中断允许位.
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"
