@@ -72,7 +72,7 @@ struct Trapframe {
 	uintptr_t tf_esp;
 	uint16_t tf_ss;
 	uint16_t tf_padding4;
-} __attribute__((packed));
+} ;//__attribute__((packed));
 
 struct UTrapframe {
 	/* information about the fault */
