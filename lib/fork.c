@@ -69,23 +69,15 @@ duppage(envid_t envid, unsigned pn)
 	// LAB 4: Your code here.
 	//panic("duppage not implemented");
 	
-	void *addr = (void*) (pn * PGSIZE);
-	if (uvpt[pn] & PTE_SHARE) 
-	{
-		sys_page_map(0, addr, envid, addr, PTE_SYSCALL);		//对于表示为PTE_SHARE的页，拷贝映射关系，并且两个进程都有读写权限
-	} 
-	else if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) 
-	    { //对于UTOP以下的可写的或者写时拷贝的页，拷贝映射关系的同时，需要同时标记当前进程和子进程的页表项为PTE_COW
+ 	void *addr = (void*) (pn * PGSIZE);
+	if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) { //对于UTOP以下的可写的或者写时拷贝的页，拷贝映射关系的同时，需要同时标记当前进程和子进程的页表项为PTE_COW
 		if ((r = sys_page_map(0, addr, envid, addr, PTE_COW|PTE_U|PTE_P)) < 0)
-			panic("sys_page_map：%e", r);  
+			panic("sys_page_map：%e", r);
 		if ((r = sys_page_map(0, addr, 0, addr, PTE_COW|PTE_U|PTE_P)) < 0)
 			panic("sys_page_map：%e", r);
-	    } 
-        else 
-	    {
+	} else {
 		sys_page_map(0, addr, envid, addr, PTE_U|PTE_P);	//对于只读的页，只需要拷贝映射关系即可
-	    }
-	
+	}
 	return 0;
 }
 
